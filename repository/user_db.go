@@ -17,6 +17,9 @@ type userRepositoryDB struct {
 
 // # Contructor Adapter
 func NewUserRepositoryDB(db *mongo.Database) userRepositoryDB {
+	// // TODO Migrate the schema
+	// db.AutoMigrate(&User{})
+
 	return userRepositoryDB{db: db}
 }
 
@@ -51,7 +54,7 @@ func (r userRepositoryDB) GetById(UserID string) (*User, error) {
 	return &result, nil
 }
 
-func (r userRepositoryDB) Add(payload UserRecive) (*mongo.UpdateResult, error) {
+func (r userRepositoryDB) Create(payload UserRecive) (*mongo.UpdateResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -69,7 +72,7 @@ func (r userRepositoryDB) Add(payload UserRecive) (*mongo.UpdateResult, error) {
 	return cursor, nil
 }
 
-func (r userRepositoryDB) Edit(UserID string, UserRecive UserRecive) (*mongo.UpdateResult, error) {
+func (r userRepositoryDB) Update(UserID string, UserRecive UserRecive) (*mongo.UpdateResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -86,4 +89,42 @@ func (r userRepositoryDB) Edit(UserID string, UserRecive UserRecive) (*mongo.Upd
 
 func (r userRepositoryDB) Delete(string) error {
 	return nil
+}
+
+func (r userRepositoryDB) CheckEmial(email string) (*bool, error) {
+	// TODO ใช้สำหรับตรวจสอบ Email ในระบบว่ามีอยู่หรือไม่ Return True เมื่อ มีในระบบ False เมื่อไม่มีในระบบ
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	filter := bson.D{{"email", email}}
+	count, err := r.db.Collection("hexagonal_users").CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	var status bool
+	if count > 0 {
+		status = true
+		return &status, nil
+	}
+	return &status, nil
+}
+
+func (r userRepositoryDB) CheckName(name string) (*bool, error) {
+	// TODO ใช้สำหรับตรวจสอบ Username ในระบบว่ามีอยู่หรือไม่ Return True เมื่อ มีในระบบ False เมื่อไม่มีในระบบ
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	filter := bson.D{{"name", name}}
+	count, err := r.db.Collection("hexagonal_users").CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	var status bool
+	if count > 0 {
+		status = true
+		return &status, nil
+	}
+	return &status, nil
 }

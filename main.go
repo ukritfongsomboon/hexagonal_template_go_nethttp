@@ -48,11 +48,18 @@ func main() {
 	userService := service.NewUserService(userRepositoryDB) // # Business Layer
 	userHandler := handler.NewUserHandler(userService)      // # Presentation layer
 
+	// userService.AddUser(service.AddUserReq{
+	// 	Email:    "aaa@a.com",
+	// 	Password: "1234",
+	// 	Name:     "ukrit",
+	// })
+
 	// # Create Api Service
 	app := fiber.New()
 
-	app.Get("/user", userHandler.GetUsers)
-	app.Get(`/user/:userid/account`, userHandler.GetUser)
+	app.Get("/user", userHandler.GetUsers)                //! Authen
+	app.Get(`/user/:userid/account`, userHandler.GetUser) //! Authen
+	app.Post(`/user`, userHandler.CreateUser)             //# No Authen
 
 	// # Start Api Service
 	app.Listen("localhost:3000")

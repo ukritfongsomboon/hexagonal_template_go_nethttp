@@ -36,6 +36,8 @@ type UserRecive struct {
 type UserRepository interface {
 	GetAll() ([]User, error)
 	GetById(string) (*User, error)
-	Add(UserRecive) (*mongo.UpdateResult, error)
-	Edit(string, UserRecive) (*mongo.UpdateResult, error)
+	Create(UserRecive) (*mongo.UpdateResult, error)
+	Update(string, UserRecive) (*mongo.UpdateResult, error)
+	CheckEmial(string) (*bool, error)
+	CheckName(string) (*bool, error)
 }

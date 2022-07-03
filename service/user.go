@@ -35,10 +35,16 @@ type UserResponse struct {
 	Status   bool   `json:"status" bson:"status" db:"status"`
 }
 
+type AddUserReq struct {
+	Name     string `json:"name" bson:"name" db:"name"`
+	Email    string `json:"email" bson:"email" db:"email"`
+	Password string `json:"password" bson:"password"`
+}
+
 type UserService interface {
 	GetUsers() ([]UserResponse, error)
 	GetUser(string) (*UserResponse, error)
-	AddUser(string) (*UserRepository, error)
+	CreateUser(AddUserReq) error
 	EditUser(string) (*UserRepository, error)
-	Authen(AuthenReq) (*AuthenRes, error)
+	Authentication(AuthenReq) (*AuthenRes, error)
 }

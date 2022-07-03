@@ -31,11 +31,11 @@ func (r userRepositoryMock) GetById(userid string) (*User, error) {
 	return nil, errors.New("mongo: no documents in result")
 }
 
-func (r userRepositoryMock) Add(UserRecive) (*mongo.UpdateResult, error) {
+func (r userRepositoryMock) Create(UserRecive) (*mongo.UpdateResult, error) {
 	return nil, nil
 }
 
-func (r userRepositoryMock) Edit(string, UserRecive) (*mongo.UpdateResult, error) {
+func (r userRepositoryMock) Update(string, UserRecive) (*mongo.UpdateResult, error) {
 	return nil, nil
 }
 func (r userRepositoryMock) Delete(string) error {

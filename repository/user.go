@@ -24,6 +24,7 @@ type User struct {
 	Status      bool      `json:"status" bson:"status" db:"status"`
 	Oauth       []Oauth   `json:"oauth" bson:"oauth" db:"oauth"`
 }
+
 type UserRecive struct {
 	Email    string `json:"email" bson:"email" db:"email"`
 	Password string `json:"password" bson:"password"`
@@ -31,11 +32,16 @@ type UserRecive struct {
 	Role     int    `json:"role" bson:"role" db:"role"`
 	Status   bool   `json:"status" bson:"status" db:"status"`
 }
+type PaginationUser struct {
+	Perpage int `json:"perpage" bson:"perpage"`
+	Page    int `json:"page" bson:"page"`
+}
 
 // # POD
 type UserRepository interface {
-	GetAll() ([]User, error)
+	GetAll(PaginationUser) ([]User, error)
 	GetById(string) (*User, error)
+	GetByEmail(string) (*User, error)
 	Create(UserRecive) (*mongo.UpdateResult, error)
 	Update(string, UserRecive) (*mongo.UpdateResult, error)
 	CheckEmial(string) (*bool, error)

@@ -8,4 +8,5 @@ type UserHandler interface {
 	CreateUser(*fiber.Ctx) error
 	EditUser(*fiber.Ctx) error
 	DeleteUser(*fiber.Ctx) error
+	Login(*fiber.Ctx) error
 }

@@ -19,17 +19,22 @@ type userRepositoryDB struct {
 func NewUserRepositoryDB(db *mongo.Database) userRepositoryDB {
 	// // TODO Migrate the schema
 	// db.AutoMigrate(&User{})
-
 	return userRepositoryDB{db: db}
 }
 
-func (r userRepositoryDB) GetAll() ([]User, error) {
+func (r userRepositoryDB) GetAll(p PaginationUser) ([]User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	query := bson.A{}
+	if p.Perpage == 0 {
+		p.Perpage = 20
+	}
+	query := bson.A{
+		bson.D{{"$skip", p.Page}},
+		bson.D{{"$limit", p.Perpage}},
+	}
 	result := []User{}
-	cursor, err := r.db.Collection("users").Aggregate(ctx, query)
+	cursor, err := r.db.Collection("hexagonal_users").Aggregate(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +52,7 @@ func (r userRepositoryDB) GetById(UserID string) (*User, error) {
 
 	query := bson.D{{"user_id", UserID}}
 	result := User{}
-	err := r.db.Collection("users").FindOne(ctx, query).Decode(&result)
+	err := r.db.Collection("hexagonal_users").FindOne(ctx, query).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
@@ -127,4 +132,17 @@ func (r userRepositoryDB) CheckName(name string) (*bool, error) {
 		return &status, nil
 	}
 	return &status, nil
+}
+
+func (r userRepositoryDB) GetByEmail(email string) (*User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	query := bson.D{{"email", email}}
+	result := User{}
+	err := r.db.Collection("hexagonal_users").FindOne(ctx, query).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
 }

@@ -24,6 +24,9 @@ type AuthenReq struct {
 
 type AuthenRes struct {
 	Accesstoken string `json:"accesstoken" bson:"accesstoken" db:"accesstoken"`
+	Email       string `json:"email" bson:"email" db:"email"`
+	Name        string `json:"name" bson:"name" db:"name"`
+	Status      bool   `json:"status" bson:"status" db:"status"`
 }
 
 type UserResponse struct {
@@ -46,5 +49,5 @@ type UserService interface {
 	GetUser(string) (*UserResponse, error)
 	CreateUser(AddUserReq) error
 	EditUser(string) (*UserRepository, error)
-	Authentication(AuthenReq) (*AuthenRes, error)
+	Authentication(*AuthenReq) (*AuthenRes, error)
 }

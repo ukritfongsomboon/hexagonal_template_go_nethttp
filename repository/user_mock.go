@@ -38,6 +38,7 @@ func (r userRepositoryMock) Create(UserRecive) (*mongo.UpdateResult, error) {
 func (r userRepositoryMock) Update(string, UserRecive) (*mongo.UpdateResult, error) {
 	return nil, nil
 }
+
 func (r userRepositoryMock) Delete(string) error {
 	return nil
 }

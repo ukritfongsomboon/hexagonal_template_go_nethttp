@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"hexagonal/repository"
 	"hexagonal/service"
 	"hexagonal/utils"
+	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -16,7 +19,11 @@ func NewUserHandler(userSrv service.UserService) UserHandler {
 }
 
 func (h userHandler) GetUsers(c *fiber.Ctx) error {
-	users, err := h.userSrv.GetUsers()
+	var p repository.PaginationUser
+	p.Page, _ = strconv.Atoi(c.Query("page", "1"))
+	p.Row, _ = strconv.Atoi(c.Query("row", "10"))
+
+	users, err := h.userSrv.GetUsers(p)
 	if err != nil {
 		appErr, ok := err.(utils.HandlerError)
 		if ok {
@@ -60,7 +67,7 @@ func (h userHandler) GetUser(c *fiber.Ctx) error {
 	})
 }
 
-func (h userHandler) CreateUser(c *fiber.Ctx) error {
+func (h userHandler) SignUp(c *fiber.Ctx) error {
 	body := new(service.AddUserReq)
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -71,7 +78,20 @@ func (h userHandler) CreateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.userSrv.CreateUser(*body); err != nil {
+	// if err := h.userSrv.CreateUser(*body); err != nil {
+	// 	appErr, ok := err.(utils.HandlerError)
+	// 	if ok {
+	// 		return c.Status(appErr.Code).JSON(fiber.Map{
+	// 			"code":    appErr.Code,
+	// 			"status":  false,
+	// 			"message": appErr.Message,
+	// 			"data":    "",
+	// 		})
+	// 	}
+	// }
+
+	user, err := h.userSrv.CreateUser(*body)
+	if err != nil {
 		appErr, ok := err.(utils.HandlerError)
 		if ok {
 			return c.Status(appErr.Code).JSON(fiber.Map{
@@ -83,11 +103,16 @@ func (h userHandler) CreateUser(c *fiber.Ctx) error {
 		}
 	}
 
+	// DTO
+	// userRes := service.UserResponse{
+
+	// }
+
 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 		"code":    fiber.StatusCreated,
 		"status":  true,
 		"message": "create user success",
-		"data":    "",
+		"data":    user,
 	})
 
 }
@@ -100,7 +125,7 @@ func (h userHandler) DeleteUser(c *fiber.Ctx) error {
 	return nil
 }
 
-func (h userHandler) Login(c *fiber.Ctx) error {
+func (h userHandler) SignIn(c *fiber.Ctx) error {
 	body := new(service.AuthenReq)
 	if err := c.BodyParser(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -123,6 +148,21 @@ func (h userHandler) Login(c *fiber.Ctx) error {
 			})
 		}
 	}
+
+	// clear cookie client
+	c.ClearCookie()
+
+	// create cookie
+	cookie := new(fiber.Cookie)
+	cookie.Name = "Accesstoken"
+	cookie.Value = data.Accesstoken
+	cookie.Secure = false
+	cookie.SessionOnly = true
+	cookie.MaxAge = 3000
+	cookie.Expires = time.Now().Add(10 * time.Second)
+
+	// set cookie
+	c.Cookie(cookie)
 
 	// # Success Case
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{

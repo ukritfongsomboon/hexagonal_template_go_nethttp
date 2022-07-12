@@ -2,14 +2,14 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"hexagonal/caching"
 	"hexagonal/repository"
 	"hexagonal/utils"
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
-	"github.com/gofiber/fiber/v2"
+	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -23,9 +23,9 @@ func NewUserService(userRepo repository.UserRepository, cache caching.AppCache) 
 	return userService{userRepo: userRepo, cache: cache}
 }
 
-func (s userService) GetUsers() ([]UserResponse, error) {
+func (s userService) GetUsers(p repository.PaginationUser) (*DataResponsePagination, error) {
 	// TODO Query Redis
-	data, err := s.cache.Get("user:*")
+	data, err := s.cache.Get(fmt.Sprintf("user:*:page:%v:row:%v", p.Page, p.Row))
 	if err != nil {
 		if err.Error() != "cache: no documents in result" {
 			utils.LogError(err)
@@ -36,12 +36,19 @@ func (s userService) GetUsers() ([]UserResponse, error) {
 		}
 	}
 
-	usersResponses := []UserResponse{}
+	var toHandler DataResponsePagination
+
+	toHandler.Pagination.Page = p.Page
+	toHandler.Pagination.Row = p.Row
+	toHandler.Pagination.Total = 0
+
+	usersResponses := []UserRes{}
 	var users []repository.User
+
 	if data == nil {
-		users, err = s.userRepo.GetAll(repository.PaginationUser{
-			Page:    1,
-			Perpage: 999,
+		users, err = s.userRepo.GetAll(repository.Pagination{
+			Page: toHandler.Pagination.Page,
+			Row:  toHandler.Pagination.Row,
 		})
 		if err != nil {
 			utils.LogError(err)
@@ -53,13 +60,12 @@ func (s userService) GetUsers() ([]UserResponse, error) {
 
 		// # DTO Data Tranfer Object
 		for _, user := range users {
-			userRes := UserResponse{
-				UserID:   user.UserID,
-				Email:    user.Email,
-				Password: user.Password,
-				Name:     user.Name,
-				Role:     user.Role,
-				Status:   user.Status,
+			userRes := UserRes{
+				UserID: user.UserID,
+				Email:  user.Email,
+
+				Name: user.Name,
+				Role: user.Role,
 			}
 			usersResponses = append(usersResponses, userRes)
 
@@ -74,7 +80,7 @@ func (s userService) GetUsers() ([]UserResponse, error) {
 			}
 		}
 
-		err = s.cache.Set("user:*", string(json))
+		err = s.cache.Set(fmt.Sprintf("user:*:page:%v:row:%v", p.Page, p.Row), string(json))
 		if err != nil {
 			utils.LogError(err)
 			return nil, utils.HandlerError{
@@ -86,10 +92,24 @@ func (s userService) GetUsers() ([]UserResponse, error) {
 	} else {
 		json.Unmarshal([]byte(*data), &usersResponses)
 	}
-	return usersResponses, nil
+
+	toHandler.Items = usersResponses
+
+	countUser, err := s.userRepo.CountAll()
+	if err != nil {
+		utils.LogError(err)
+		return nil, utils.HandlerError{
+			Code:    500,
+			Message: "unexpected error",
+		}
+	}
+
+	toHandler.Pagination.Total = int(countUser)
+
+	return &toHandler, nil
 }
 
-func (s userService) GetUser(userid string) (*UserResponse, error) {
+func (s userService) GetUser(userid string) (*UserRes, error) {
 	// TODO Query Redis
 	data, err := s.cache.Get("user:" + userid)
 	if err != nil {
@@ -102,7 +122,7 @@ func (s userService) GetUser(userid string) (*UserResponse, error) {
 		}
 	}
 	var user *repository.User
-	var usersResponses UserResponse
+	var usersResponses UserRes
 	if data == nil {
 		user, err = s.userRepo.GetById(userid)
 		if err != nil {
@@ -120,13 +140,13 @@ func (s userService) GetUser(userid string) (*UserResponse, error) {
 			}
 		}
 
-		usersResponses = UserResponse{
-			UserID:   user.UserID,
-			Email:    user.Email,
-			Password: user.Password,
-			Name:     user.Name,
-			Role:     user.Role,
-			Status:   user.Status,
+		usersResponses = UserRes{
+			UserID: user.UserID,
+			Email:  user.Email,
+			// Password: user.Password,
+			Name: user.Name,
+			Role: user.Role,
+			// Status:   user.Status,
 		}
 
 		// TODO Set Cache
@@ -154,44 +174,47 @@ func (s userService) GetUser(userid string) (*UserResponse, error) {
 	return &usersResponses, nil
 }
 
-func (s userService) CreateUser(r AddUserReq) error {
+func (s userService) CreateUser(r AddUserReq) (*UserRes, error) {
 	// TODO 1.validate data
 	// TODO 1.1 Validate Data format
 	// TODO 1.2 ValiData exists
-	emailStatus, err := s.userRepo.CheckEmial(strings.ToLower(r.Email))
-	if err != nil {
-		return utils.HandlerError{
-			Code:    fiber.StatusBadRequest,
-			Message: "unexpected error",
-		}
-	}
 
-	if *emailStatus {
-		return utils.HandlerError{
-			Code:    fiber.StatusBadRequest,
-			Message: "email is exists",
-		}
-	}
+	// # version 1
+	// emailStatus, err := s.userRepo.CheckEmial(strings.ToLower(r.Email))
+	// if err != nil {
+	// 	return utils.HandlerError{
+	// 		Code:    fiber.StatusBadRequest,
+	// 		Message: "unexpected error",
+	// 	}
+	// }
 
-	nameStatus, err := s.userRepo.CheckName(r.Name)
-	if err != nil {
-		return utils.HandlerError{
-			Code:    fiber.StatusBadRequest,
-			Message: "unexpected error",
-		}
-	}
+	// if *emailStatus {
+	// 	return utils.HandlerError{
+	// 		Code:    fiber.StatusBadRequest,
+	// 		Message: "email is exists",
+	// 	}
+	// }
 
-	if *nameStatus {
-		return utils.HandlerError{
-			Code:    fiber.StatusBadRequest,
-			Message: "name is exists",
-		}
-	}
+	// nameStatus, err := s.userRepo.CheckName(r.Name)
+	// if err != nil {
+	// 	return utils.HandlerError{
+	// 		Code:    fiber.StatusBadRequest,
+	// 		Message: "unexpected error",
+	// 	}
+	// }
 
+	// if *nameStatus {
+	// 	return utils.HandlerError{
+	// 		Code:    fiber.StatusBadRequest,
+	// 		Message: "name is exists",
+	// 	}
+	// }
+
+	// # version 2
 	// TODO 2.Generate new password use bcryp
 	newPass, err := bcrypt.GenerateFromPassword([]byte(r.Password), 10)
 	if err != nil {
-		return utils.HandlerError{
+		return nil, utils.HandlerError{
 			Code:    500,
 			Message: "unexpected error",
 		}
@@ -208,16 +231,25 @@ func (s userService) CreateUser(r AddUserReq) error {
 
 	// TODO 4.insert to db
 	_, err = s.userRepo.Create(data)
-
 	// TODO 5.response
 	if err != nil {
-		utils.LogError(err)
-		return utils.HandlerError{
-			Code:    500,
-			Message: "unexpected error",
+		if err.Error() == "email already exist" {
+			utils.LogError(err)
+			return nil, utils.HandlerError{
+				Code:    400,
+				Message: "email already exist",
+			}
+		} else {
+			utils.LogError(err)
+			return nil, utils.HandlerError{
+				Code:    500,
+				Message: "unexpected error",
+			}
 		}
+
 	}
-	return nil
+
+	return nil, nil
 }
 
 func (s userService) EditUser(string) (*UserRepository, error) {
@@ -267,20 +299,23 @@ func (s userService) Authentication(payload *AuthenReq) (*AuthenRes, error) {
 
 	// TODO 4.Generate New Jwt
 	//# Create Claim JWT Token
-	claims := jwt.StandardClaims{
-		Issuer:    user.UserID,
-		ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
-	}
+	// claims := jwt.StandardClaims{
+	// 	Issuer:    user.UserID,
+	// 	ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
+	// }
 
-	//# Create Header Claim
-	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	// //# Create Header Claim
+	// jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	//# Get signature JWT
-	// signature := utils.Getenv("APP_SIGNATURE", "ukritFongsomboon")
-	signature := "xxx"
+	// //# Get signature JWT
+	// // signature := utils.Getenv("APP_SIGNATURE", "ukritFongsomboon")
+	// signature := "xxx"
 
-	//# Create JWT Token
-	token, err := jwtToken.SignedString([]byte(signature))
+	// //# Create JWT Token
+	// token, err := jwtToken.SignedString([]byte(signature))
+
+	private := viper.GetString("app.access_token_private_key")
+	token, err := utils.CreateToken(30*time.Minute, user.UserID, private)
 
 	//# DTO
 	t := AuthenRes{
@@ -288,6 +323,7 @@ func (s userService) Authentication(payload *AuthenReq) (*AuthenRes, error) {
 		Status:      user.Status,
 		Name:        user.Name,
 		Email:       strings.ToLower(user.Email),
+		Role:        user.Role,
 	}
 
 	// TODO 5.Return To handler

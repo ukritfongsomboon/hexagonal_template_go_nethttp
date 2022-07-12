@@ -33,17 +33,24 @@ type UserRecive struct {
 	Status   bool   `json:"status" bson:"status" db:"status"`
 }
 type PaginationUser struct {
-	Perpage int `json:"perpage" bson:"perpage"`
-	Page    int `json:"page" bson:"page"`
+	Page  int `json:"page" bson:"page"`
+	Row   int `json:"row" bson:"row"`
+	Total int `json:"total" bson:"total"`
+}
+
+type Pagination struct {
+	Page int `json:"page" bson:"page"`
+	Row  int `json:"row" bson:"row"`
 }
 
 // # POD
 type UserRepository interface {
-	GetAll(PaginationUser) ([]User, error)
+	GetAll(Pagination) ([]User, error)
 	GetById(string) (*User, error)
 	GetByEmail(string) (*User, error)
-	Create(UserRecive) (*mongo.UpdateResult, error)
+	Create(UserRecive) (*User, error)
 	Update(string, UserRecive) (*mongo.UpdateResult, error)
 	CheckEmial(string) (*bool, error)
 	CheckName(string) (*bool, error)
+	CountAll() (int64, error)
 }
